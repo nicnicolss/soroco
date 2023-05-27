@@ -1,0 +1,114 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <uRTCLib.h> // RTC lib
+#include <SoftwareSerial.h>
+#include "RedMP3.h" //MP3 maroto
+
+#define volume_Pot A0
+#define ARDUINO_RX 7 //mp3
+#define ARDUINO_TX 8 //mp3
+
+#define TIMEOUT_COUNT 1000 
+
+LiquidCrystal_I2C lcd(0x27, 16, 4);
+
+int switchPin = 13;  // button pin KEY
+int click = HIGH; // button value
+
+int pinA = 12;    // Rotary encoder Pin S1
+int pinB = 11;    // Rotary encoder Pin S2
+int pinAstateCurrent = LOW;   // Current state of Pin S1
+int pinAStateLast = pinAstateCurrent;   // Last read value of Pin S2
+
+MP3 mp3(ARDUINO_RX, ARDUINO_TX); //MP3
+int8_t musica1 = 0x01; //primeira música do cartão SD
+int8_t musica2 = 0x02; //segunda música do cartão SD
+int8_t folderName = 0x01; //pasta do cartão
+int8_t lastVolume; //volume atual
+int st=0; //setting state 0 - main screen state
+bool refresh_screen=true; // impede q fique printando a tela 900x até ir pra proxima (NÃO FICA PISCANDO)
+int encoder = 0;
+int line=0;
+int timer = 0;
+
+void setup() {
+    Serial.begin(9600);   // Initialise the serial monitor
+
+    // ENCODER
+    pinMode(switchPin, INPUT_PULLUP);   // Enable the switchPin as input with a PULLUP resistor
+    pinMode(pinA, INPUT);   // Set PinA as input
+    pinMode(pinB, INPUT);   // Set PinB as input
+
+    // LCD
+    lcd.init();       // Initialize the LCD
+    lcd.setBacklight(HIGH); // Turn on the backlight
+
+    // SOM ++++++++++++++++++++++++++++++++++++
+      mp3.setVolume(lastVolume); //selecionar o volume
+
+}
+
+int read_encoder() {
+      int movement = 0; //
+      int pinAstateCurrent = digitalRead(pinA);   // Read the current state of pinA
+
+      // If the encoder knob was turned
+      if ((pinAStateLast == LOW) && (pinAstateCurrent == HIGH)) {   // Check the direction of the turn
+        if (digitalRead(pinB) == HIGH) {
+          movement = 1; // direção do relogiooo
+        } else {
+          movement = -1; //oposto do relogiooo
+        }
+      }
+
+      pinAStateLast = pinAstateCurrent; //guarda o ultimo estado do pinA pra comparar depois
+      return movement; //retorna o movimento binito 
+    }
+  // END ENCODER
+
+  // SOM 
+int encoderChangeVolume(int volume) {
+  int encoder_move = read_encoder(); // Determines if the rotary encoder has moved
+
+  if (encoder_move == 1) {
+    volume++;
+  } 
+  else if (encoder_move == -1) {
+    volume--;
+  }
+
+  volume = constrain(volume, 0, 30);
+  
+  if (volume != lastVolume) {
+    mp3.setVolume(volume);
+    lastVolume = volume;
+  }
+
+  return volume;
+}
+
+void loop() {
+    static int click_last = HIGH;
+  click = digitalRead(switchPin);
+     
+  if (click == LOW) {
+    // Handle the button press event here
+    // For now, I am just printing it on the serial monitor
+    Serial.println("Button Pressed!");
+  } else {
+    Sound_volume();
+  }
+
+ delay(20);
+}
+
+void Sound_volume() {
+  lcd.clear();
+  lcd.setCursor(5, 0);  // HEADER ---------------------------------
+  lcd.print("Volume");
+  int v =  encoderChangeVolume(lastVolume);
+  lcd.setCursor(7, 2);  // HEADER ---------------------------------
+  lcd.print(v);
+  lcd.setCursor(2, 3);  // RETURN ---------------------------------
+  lcd.print("Back");
+}
